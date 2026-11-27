@@ -4,24 +4,28 @@ iPhone 原生（SwiftUI）的 [opencode](https://github.com/anomalyco/opencode) 
 
 > 与 opencode 官方无隶属关系，独立社区客户端，通过 opencode 开放 HTTP API 通信。
 
-## 当前状态（M1）
+当前状态（M2）：
 
 已实现：
 
 - 多连接管理（添加 / 编辑 / 重命名 / 删除 / 测试连通性，自动识别 opencode V1 / V2 API）
 - 会话列表（按项目目录分组、搜索、相对时间、运行中标识、下拉刷新、滑动删除、重命名）
 - 新建会话选目录（V1 列出已打开项目，V2 支持逐级浏览服务器目录树）
-- 会话消息查看（用户气泡 / AI 回复 / 思考过程折叠 / 工具调用卡片 / 附件）
+- **流式对话**（SSE 实时输出、发送消息、乐观上屏、断线自动重连、5s 轮询兜底、执行中状态恢复）
+- **权限审批**（AI 请求敏感操作时直接「拒绝 / 本次允许 / 总是允许」）
+- **中断执行**（一键停止）
+- **Agent / 模型切换**（智能体选择、按供应商分组的模型搜索选择，V1 提示下次发送生效）
+- Markdown 渲染（标题 / 列表 / 引用 / 行内代码 / 代码块带复制 / 链接）
+- 工具调用卡片（运行状态、命令与文件路径、展开查看输出）
+- Diff 视图（edit / write LCS 行级差异、patch 解析、增删行统计、一键复制）
+- 思考过程折叠、系统注入内容过滤（显示/隐藏切换）
 - 连接密码仅保存在本机 UserDefaults，不上传
 
-路线图（M2+）：
+路线图（M3+）：
 
-- [ ] 流式对话（SSE 实时输出 + 发送消息）
-- [ ] 权限审批卡片 / 中断执行
-- [ ] Diff 视图（edit / patch / write）
-- [ ] Agent / 模型切换
 - [ ] 语音输入（SFSpeechRecognizer 离线中文识别）
-- [ ] 会话执行中状态恢复
+- [ ] 图片 / 文件附件（PhotosPicker + fileImporter，上限 6 个）
+- [ ] 应用图标
 
 ## 系统要求
 
@@ -76,13 +80,17 @@ OpenCode-iOS/
     ├── Service/ApiClient.swift      # REST 客户端 V1+V2 双协议（移植 ApiClient.ets）
     ├── Service/EventStream.swift    # SSE 事件流（移植 EventStream.ets）
     ├── Store/AppState.swift         # 连接持久化与全局状态（移植 Store.ets）
+    ├── View/
+    │   ├── MarkdownView.swift       # Markdown 渲染（移植 Markdown.ets）
+    │   └── DiffView.swift           # LCS diff / patch 视图（移植 DiffView.ets）
     └── Pages/
         ├── MainView.swift           # 底部双页签
         ├── ConnectionsView.swift    # 连接页
         ├── EditConnectionView.swift # 连接编辑/测试
         ├── SessionsView.swift       # 会话列表
         ├── DirectoryPickerView.swift# 新会话选目录
-        └── ChatView.swift           # 对话页（M1 只读，M2 加入流式与发送）
+        ├── ChatState.swift          # 对话页状态与逻辑（移植 Chat.ets 逻辑层）
+        └── ChatView.swift           # 对话页 UI（流式/审批/工具卡片/输入栏）
 ```
 
 零第三方依赖（与鸿蒙版同一原则），构建仅需 XcodeGen 生成工程。

@@ -4,6 +4,7 @@ final class EventStream {
     let conn: Connection
     var onEvent: (String, String) -> Void = { _, _ in }
     var onClosed: () -> Void = {}
+    var onStarted: () -> Void = {}
     private var task: Task<Void, Never>?
 
     init(conn: Connection) {
@@ -30,6 +31,7 @@ final class EventStream {
                     await MainActor.run { self.onClosed() }
                     return
                 }
+                await MainActor.run { self.onStarted() }
                 var event = ""
                 var data = ""
                 for try await line in bytes.lines {
