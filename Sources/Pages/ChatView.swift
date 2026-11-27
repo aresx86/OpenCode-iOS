@@ -377,7 +377,7 @@ struct ChatView: View {
     }
 
     private func attachmentChip(_ a: PendingAttachment) -> some View {
-        ZStack(alignment: .topEnd) {
+        ZStack(alignment: .topTrailing) {
             Group {
                 if a.isImage, let img = ChatImageCache.image(fromDataUrl: a.dataUrl) {
                     Image(uiImage: img)

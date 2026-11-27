@@ -37,19 +37,19 @@ final class VoiceInput: NSObject {
         guard !listening else { return }
         SFSpeechRecognizer.requestAuthorization { [weak self] status in
             DispatchQueue.main.async {
-                guard let self else { return }
+                guard let wself = self else { return }
                 guard status == .authorized else {
-                    self.onError("未授予语音识别权限，无法使用语音输入")
+                    wself.onError("未授予语音识别权限，无法使用语音输入")
                     return
                 }
                 AVAudioSession.sharedInstance().requestRecordPermission { granted in
                     DispatchQueue.main.async {
-                        guard let self else { return }
+                        guard let wself2 = self else { return }
                         guard granted else {
-                            self.onError("未授予麦克风权限，无法使用语音输入")
+                            wself2.onError("未授予麦克风权限，无法使用语音输入")
                             return
                         }
-                        self.beginRecording(base: base)
+                        wself2.beginRecording(base: base)
                     }
                 }
             }
