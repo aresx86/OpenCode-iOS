@@ -17,7 +17,8 @@ struct MdBlock: Identifiable {
     var ordered = false
     var index = 0
     var lang = ""
-    var id: String { "\(index)-\(type.rawValue)-\(text.hashValue)" }
+    var idx = 0
+    var id: String { "md_\(idx)" }
 }
 
 struct MdSpan {
@@ -226,6 +227,9 @@ func parseMarkdown(_ src: String) -> [MdBlock] {
             blocks.append(b)
         }
     }
+    for i in blocks.indices {
+        blocks[i].idx = i
+    }
     return blocks
 }
 
@@ -258,7 +262,7 @@ struct MarkdownView: View {
     var body: some View {
         let blocks = parseMarkdown(text)
         VStack(alignment: .leading, spacing: 6) {
-            ForEach(Array(blocks.enumerated()), id: \.offset) { _, b in
+            ForEach(blocks) { b in
                 blockView(b)
             }
         }

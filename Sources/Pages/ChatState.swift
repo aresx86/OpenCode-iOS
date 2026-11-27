@@ -103,14 +103,14 @@ final class ChatState: ObservableObject {
     private func startPolling() {
         guard pollTask == nil else { return }
         pollTask = Task { [weak self] in
-            while let self, !self.destroyed, !Task.isCancelled {
+            while true {
                 try? await Task.sleep(nanoseconds: 5_000_000_000)
                 if Task.isCancelled { break }
-                guard let s = self, !s.destroyed else { break }
-                s.loadSessionMeta()
-                if s.busy {
-                    s.reloadPermissions()
-                    s.scheduleReload()
+                guard let self, !self.destroyed else { break }
+                self.loadSessionMeta()
+                if self.busy {
+                    self.reloadPermissions()
+                    self.scheduleReload()
                 }
             }
         }

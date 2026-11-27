@@ -244,7 +244,10 @@ func agentColorHex(_ name: String) -> String {
 func parseSessionObject(_ text: String) -> SessionInfo? {
     guard let obj = jRoot(text) else { return nil }
     let inner = jObj(obj, "data")
-    let target: Any? = inner != nil ? inner : obj
+    var target: Any? = obj
+    if let inner {
+        target = inner
+    }
     let s = sessionFrom(target)
     return s.id.isEmpty ? nil : s
 }
@@ -260,12 +263,11 @@ func parseSessions(_ text: String) -> [SessionInfo] {
 }
 
 func parseActiveSessions(_ text: String) -> [String] {
-    guard let root = jRoot(text) else { return [] }
-    let inner = jDict(root)?["data"]
-    let target: Any? = inner != nil ? inner : root
-    guard let d = target as? [String: Any] else { return [] }
+    guard let root = jRoot(text), let rootDict = root as? [String: Any] else { return [] }
+    let data = rootDict["data"] as? [String: Any]
+    let target = data ?? rootDict
     var out: [String] = []
-    for (k, v) in d {
+    for (k, v) in target {
         if jStr(v, "type") == "idle" { continue }
         out.append(k)
     }

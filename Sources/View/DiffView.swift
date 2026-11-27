@@ -4,7 +4,8 @@ import UIKit
 struct DiffLine: Identifiable {
     var kind: Int
     var text: String
-    var id: String { "\(kind)-\(text.hashValue)-\(UUID().uuidString.hashValue)" }
+    var idx = 0
+    var id: String { "dl_\(idx)" }
 }
 
 private let maxDiffLines = 400
@@ -104,7 +105,12 @@ struct DiffView: View {
 
     private var displayLines: [DiffLine] {
         let all = lines
-        return all.count <= maxDiffLines ? all : Array(all[..<maxDiffLines])
+        let shown = all.count <= maxDiffLines ? all : Array(all[..<maxDiffLines])
+        return shown.enumerated().map { pair in
+            var l = pair.element
+            l.idx = pair.offset
+            return l
+        }
     }
 
     private func countKind(_ kind: Int) -> Int {
@@ -162,7 +168,7 @@ struct DiffView: View {
                         .foregroundColor(copied ? Theme.success : Theme.accent)
                 }
             }
-            ForEach(Array(displayLines.enumerated()), id: \.offset) { _, l in
+            ForEach(displayLines) { l in
                 Text(lineLabel(l))
                     .font(.system(size: 11, design: .monospaced))
                     .foregroundColor(lineColor(l))

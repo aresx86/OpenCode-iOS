@@ -661,6 +661,12 @@ struct AgentPickerSheet: View {
     }
 }
 
+struct ModelGroup: Identifiable {
+    let provider: String
+    let models: [ModelOption]
+    var id: String { provider }
+}
+
 struct ModelPickerSheet: View {
     @ObservedObject var state: ChatState
     @Environment(\.dismiss) private var dismiss
@@ -670,7 +676,7 @@ struct ModelPickerSheet: View {
     @State private var err = ""
     @State private var search = ""
 
-    private var filteredGroups: [(provider: String, models: [ModelOption])] {
+    private var filteredGroups: [ModelGroup] {
         let q = search.trimmingCharacters(in: .whitespacesAndNewlines)
         let filtered = models.filter { m in
             q.isEmpty
@@ -687,7 +693,7 @@ struct ModelPickerSheet: View {
             }
             map[m.providerID]?.append(m)
         }
-        return order.map { (provider: $0, models: map[$0] ?? []) }
+        return order.map { ModelGroup(provider: $0, models: map[$0] ?? []) }
     }
 
     var body: some View {
@@ -732,7 +738,7 @@ struct ModelPickerSheet: View {
 
     private var modelList: some View {
         List {
-            ForEach(filteredGroups, id: \.provider) { group in
+            ForEach(filteredGroups) { group in
                 Section(header: Text(group.provider)) {
                     ForEach(group.models) { m in
                         Button {

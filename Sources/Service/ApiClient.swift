@@ -152,7 +152,10 @@ final class ApiClient {
         }
         let obj = jRoot(raw)
         let inner = jObj(obj, "data")
-        let target: Any? = inner != nil ? inner : obj
+        var target: Any? = obj
+        if let inner {
+            target = inner
+        }
         let id = jStr(target, "id")
         if !id.isEmpty {
             var s = SessionInfo(id: id)
