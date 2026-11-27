@@ -2,7 +2,7 @@ name: OpenCode
 options:
   bundleIdPrefix: com.aresx86
   deploymentTarget:
-    iOS: "16.0"
+    iOS: "16.1"
   createIntermediateGroups: true
 settings:
   base:
@@ -14,6 +14,9 @@ targets:
     platform: iOS
     sources:
       - path: Sources
+    settings:
+      base:
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     info:
       path: Sources/Info.plist
       properties:

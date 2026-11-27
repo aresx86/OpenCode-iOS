@@ -18,10 +18,14 @@ final class ChatState: ObservableObject {
     @Published var title: String
     @Published var loading = true
     @Published var toast: String?
+    @Published var listening = false
+    @Published var attachments: [PendingAttachment] = []
 
     let conn: Connection
     let sessionId: String
     let client: ApiClient
+
+    private let voice = VoiceInput.shared
 
     private var stream: EventStream?
     private var restartCount = 0
@@ -39,6 +43,21 @@ final class ChatState: ObservableObject {
         self.client = ApiClient(conn: conn)
         self.title = initialTitle
         self.showSystem = ConnectionStore.shared.showSystem
+        voice.onText = { [weak self] full in
+            self?.input = full
+        }
+        voice.onListeningChange = { [weak self] l in
+            self?.listening = l
+            if l {
+                self?.toast = "正在聆听，再次点击麦克风结束"
+            }
+        }
+        voice.onError = { [weak self] msg in
+            self?.toast = msg
+        }
+        voice.onAutoStop = { [weak self] msg in
+            self?.toast = msg
+        }
     }
 
     var agentColor: Color {
@@ -65,6 +84,58 @@ final class ChatState: ObservableObject {
         retryTask?.cancel()
         restartTask?.cancel()
         pollTask?.cancel()
+        voice.destroy()
+    }
+
+    // MARK: - Voice
+
+    func toggleVoice() {
+        if voice.listening {
+            voice.stop()
+            return
+        }
+        guard !listening else { return }
+        voice.start(base: input)
+    }
+
+    // MARK: - Attachments
+
+    func addAttachment(data: Data, mime: String, name: String) {
+        guard attachments.count < 6 else {
+            toast = "最多添加 6 个附件"
+            return
+        }
+        guard data.count <= 15 * 1024 * 1024 else {
+            toast = "文件超过 15MB：\(name)"
+            return
+        }
+        let dataUrl = "data:\(mime);base64," + data.base64EncodedString()
+        attachments.append(PendingAttachment(name: name, mime: mime, dataUrl: dataUrl, isImage: isImageMime(mime)))
+    }
+
+    func removeAttachment(_ a: PendingAttachment) {
+        attachments.removeAll { $0.dataUrl == a.dataUrl && $0.name == a.name }
+    }
+
+    func isImageMime(_ mime: String) -> Bool {
+        mime == "image/png" || mime == "image/jpeg" || mime == "image/gif" || mime == "image/webp"
+    }
+
+    func mimeFromName(_ name: String) -> String {
+        let lower = name.lowercased()
+        guard let dot = lower.lastIndex(of: ".") else { return "application/octet-stream" }
+        let ext = String(lower[lower.index(after: dot)...])
+        switch ext {
+        case "png": return "image/png"
+        case "jpg", "jpeg": return "image/jpeg"
+        case "gif": return "image/gif"
+        case "webp": return "image/webp"
+        case "bmp": return "image/bmp"
+        case "pdf": return "application/pdf"
+        case "txt", "md", "log": return "text/plain"
+        case "json": return "application/json"
+        default: return "application/octet-stream"
+        }
     }
 
     // MARK: - Stream
@@ -311,22 +382,34 @@ final class ChatState: ObservableObject {
 
     func send() {
         let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
-        if text.isEmpty || busy || sending {
+        let files = attachments
+        if (text.isEmpty && files.isEmpty) || busy || sending {
             return
         }
         sending = true
         busy = true
         busySince = Date()
         let now = Int(Date().timeIntervalSince1970 * 1000)
-        let optimistic = ChatItem(key: "pending_\(now)")
-        optimistic.role = "user"
-        optimistic.text = text
-        items.append(optimistic)
+        if !text.isEmpty {
+            let optimistic = ChatItem(key: "pending_\(now)")
+            optimistic.role = "user"
+            optimistic.text = text
+            items.append(optimistic)
+        }
+        for (i, a) in files.enumerated() {
+            let f = ChatItem(key: "pending_\(now)_f\(i)")
+            f.role = "user"
+            f.fileMime = a.mime
+            f.fileUrl = a.dataUrl
+            f.fileName = a.name
+            items.append(f)
+        }
         input = ""
+        attachments = []
         Task { [weak self] in
             guard let self else { return }
             do {
-                try await self.client.prompt(sessionId: self.sessionId, text: text)
+                try await self.client.prompt(sessionId: self.sessionId, text: text, attachments: files)
                 self.sending = false
                 self.reloadMessages()
                 if self.conn.apiVersion == 1 {

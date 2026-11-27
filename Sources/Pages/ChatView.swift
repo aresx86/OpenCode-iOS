@@ -1,5 +1,7 @@
 import SwiftUI
 import UIKit
+import PhotosUI
+import UniformTypeIdentifiers
 
 enum ChatImageCache {
     static let cache = NSCache<NSString, UIImage>()
@@ -24,6 +26,10 @@ struct ChatView: View {
     @StateObject private var state: ChatState
     @State private var showAgentPicker = false
     @State private var showModelPicker = false
+    @State private var showAttachMenu = false
+    @State private var showPhotoPicker = false
+    @State private var showFilePicker = false
+    @State private var pickedItems: [PhotosPickerItem] = []
 
     init(conn: Connection, session: SessionInfo) {
         self.conn = conn
@@ -49,6 +55,7 @@ struct ChatView: View {
             }
             messages
             agentModelChips
+            attachmentChips
             inputBar
         }
         .background(Theme.pageBackground)
@@ -118,6 +125,56 @@ struct ChatView: View {
         }
         .sheet(isPresented: $showModelPicker) {
             ModelPickerSheet(state: state)
+        }
+        .confirmationDialog("添加附件", isPresented: $showAttachMenu, titleVisibility: .visible) {
+            Button("图片（png / jpeg / gif / webp）") {
+                showPhotoPicker = true
+            }
+            Button("文件（文档、PDF、文本等）") {
+                showFilePicker = true
+            }
+            Button("取消", role: .cancel) {}
+        }
+        .photosPicker(isPresented: $showPhotoPicker, selection: $pickedItems, matching: .images)
+        .fileImporter(
+            isPresented: $showFilePicker,
+            allowedContentTypes: [.item],
+            allowsMultipleSelection: true
+        ) { result in
+            if let urls = try? result.get() {
+                importFiles(urls)
+            }
+        }
+        .onChange(of: pickedItems) { items in
+            guard !items.isEmpty else { return }
+            Task {
+                let now = Int(Date().timeIntervalSince1970 * 1000)
+                for (i, item) in items.enumerated() {
+                    guard let data = try? await item.loadTransferable(type: Data.self) else { continue }
+                    let type = item.supportedContentTypes.first
+                    let mime = type?.preferredMIMEType ?? "image/jpeg"
+                    let ext = type?.preferredFilenameExtension ?? "jpg"
+                    state.addAttachment(data: data, mime: mime, name: "photo_\(now)_\(i).\(ext)")
+                }
+                pickedItems = []
+            }
+        }
+    }
+
+    private func importFiles(_ urls: [URL]) {
+        for url in urls {
+            let secured = url.startAccessingSecurityScopedResource()
+            defer {
+                if secured {
+                    url.stopAccessingSecurityScopedResource()
+                }
+            }
+            guard let data = try? Data(contentsOf: url) else {
+                app.showToast("读取文件失败：\(url.lastPathComponent)")
+                continue
+            }
+            let name = url.lastPathComponent
+            state.addAttachment(data: data, mime: state.mimeFromName(name), name: name)
         }
     }
 
@@ -303,8 +360,72 @@ struct ChatView: View {
         .padding(.bottom, 2)
     }
 
+    private var attachmentChips: some View {
+        Group {
+            if !state.attachments.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(state.attachments, id: \.dataUrl) { a in
+                            attachmentChip(a)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
+                .padding(.top, 6)
+            }
+        }
+    }
+
+    private func attachmentChip(_ a: PendingAttachment) -> some View {
+        ZStack(alignment: .topEnd) {
+            Group {
+                if a.isImage, let img = ChatImageCache.image(fromDataUrl: a.dataUrl) {
+                    Image(uiImage: img)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: 56, height: 56)
+                        .cornerRadius(10)
+                } else {
+                    HStack(spacing: 4) {
+                        Image(systemName: "doc")
+                            .font(.system(size: 14))
+                        Text(a.name)
+                            .font(.system(size: 11))
+                            .foregroundColor(Theme.primaryText)
+                            .lineLimit(1)
+                            .frame(maxWidth: 90)
+                    }
+                    .frame(height: 56)
+                    .padding(.horizontal, 10)
+                    .background(RoundedRectangle(cornerRadius: 10).fill(Theme.cardBackground))
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.cardBorder, lineWidth: 1))
+                }
+            }
+            Image(systemName: "xmark")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(.white)
+                .frame(width: 18, height: 18)
+                .background(Color(hex: "#CC0B1220"), in: Circle())
+                .offset(x: 6, y: -6)
+                .onTapGesture {
+                    state.removeAttachment(a)
+                }
+        }
+    }
+
     private var inputBar: some View {
-        HStack(alignment: .bottom, spacing: 10) {
+        HStack(alignment: .bottom, spacing: 8) {
+            Button {
+                showAttachMenu = true
+            } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 18))
+                    .foregroundColor(Theme.primaryText)
+                    .frame(width: 44, height: 44)
+                    .background(Circle().fill(Theme.cardBackground))
+                    .overlay(Circle().stroke(Theme.cardBorder, lineWidth: 1))
+            }
+
             TextEditor(text: $state.input)
                 .font(.system(size: 14))
                 .foregroundColor(Theme.primaryText)
@@ -319,7 +440,7 @@ struct ChatView: View {
                 )
                 .overlay(alignment: .topLeading) {
                     if state.input.isEmpty {
-                        Text(state.busy ? "执行中，请等待…" : "输入消息…")
+                        Text(placeholder)
                             .font(.system(size: 14))
                             .foregroundColor(Theme.secondaryText)
                             .padding(.leading, 16)
@@ -327,6 +448,25 @@ struct ChatView: View {
                             .allowsHitTesting(false)
                     }
                 }
+
+            Button {
+                state.toggleVoice()
+            } label: {
+                Group {
+                    if state.listening {
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(.white)
+                            .frame(width: 14, height: 14)
+                    } else {
+                        Image(systemName: "mic")
+                            .font(.system(size: 18))
+                            .foregroundColor(Theme.primaryText)
+                    }
+                }
+                .frame(width: 44, height: 44)
+                .background(Circle().fill(state.listening ? Theme.danger : Theme.cardBackground))
+                .overlay(Circle().stroke(state.listening ? Theme.danger : Theme.cardBorder, lineWidth: 1))
+            }
 
             Button {
                 state.send()
@@ -343,6 +483,12 @@ struct ChatView: View {
         .padding(.leading, 16)
         .padding(.top, 8)
         .padding(.bottom, 10)
+    }
+
+    private var placeholder: String {
+        if state.listening { return "正在聆听…" }
+        if state.busy { return "执行中，请等待…" }
+        return "输入消息…"
     }
 }
 
