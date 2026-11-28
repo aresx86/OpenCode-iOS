@@ -17,6 +17,8 @@ targets:
     settings:
       base:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        MARKETING_VERSION: "0.2.0"
+        CURRENT_PROJECT_VERSION: "2000000"
     info:
       path: Sources/Info.plist
       properties:

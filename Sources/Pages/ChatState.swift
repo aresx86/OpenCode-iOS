@@ -189,20 +189,63 @@ final class ChatState: ObservableObject {
 
     private func handleEvent(_ name: String, _ data: String) {
         restartCount = 0
-        if name.contains("message") || name.contains("part") {
-            scheduleReload()
-        } else if name.contains("permission") {
+        if name.contains("permission") {
             reloadPermissions()
             scheduleReload()
-        } else if name == "session.status" {
+            return
+        }
+        if name == "session.status" {
             onStatusEvent(data)
             scheduleReload()
-        } else if name == "session.idle" || name == "session.error" {
+            return
+        }
+        if name == "session.idle" || name == "session.error" {
             busy = false
             reloadMessages()
-        } else if name == "session.updated" {
-            loadSessionMeta()
+            return
         }
+        if name == "session.updated" || name == "session.renamed" {
+            loadSessionMeta()
+            return
+        }
+        if name == "session.inbox.enqueued" || name == "session.inbox.delivered"
+            || name == "session.execution.started" {
+            if eventForThisSession(data) {
+                applyBusy(true)
+                scheduleReload()
+            }
+            return
+        }
+        if name == "session.execution.succeeded" || name == "session.execution.failed"
+            || name == "session.execution.aborted" {
+            if eventForThisSession(data) {
+                busy = false
+            }
+            reloadMessages()
+            return
+        }
+        if name == "session.text.delta" || name == "session.reasoning.delta"
+            || name == "session.text.started" || name == "session.text.ended"
+            || name == "session.reasoning.started" || name == "session.reasoning.ended" {
+            if eventForThisSession(data) {
+                applyBusy(true)
+                scheduleReload()
+            }
+            return
+        }
+        if name.contains("message") || name.contains("part") || name.hasPrefix("session.") {
+            scheduleReload()
+        }
+    }
+
+    private func eventForThisSession(_ data: String) -> Bool {
+        guard let obj = jRoot(data) else { return true }
+        if let d = jObj(obj, "data") {
+            let sid = jStr(d, "sessionID")
+            return sid.isEmpty || sid == sessionId
+        }
+        let sid = jStr(obj, "sessionID")
+        return sid.isEmpty || sid == sessionId
     }
 
     private func onStatusEvent(_ data: String) {

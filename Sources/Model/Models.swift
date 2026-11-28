@@ -434,12 +434,15 @@ private func partToToolItem(_ p: Any, _ msgKey: String, _ idx: Int) -> ChatItem 
     return item
 }
 
-func parseChatItems(_ text: String) -> [ChatItem] {
+func parseChatItems(_ text: String, reverseRecords: Bool = false) -> [ChatItem] {
     var out: [ChatItem] = []
     let root = jRoot(text)
     var arr = topArray(root)
     if arr.isEmpty, let d = root as? [String: Any] {
         arr = d["data"] as? [Any] ?? []
+    }
+    if reverseRecords && arr.count > 1 {
+        arr = arr.reversed()
     }
     for (i, entry) in arr.enumerated() {
         var role = ""
@@ -465,6 +468,10 @@ func parseChatItems(_ text: String) -> [ChatItem] {
             if parts.isEmpty { parts = jArr(entry, "content") }
             let t = jStr(entry, "text")
             if !t.isEmpty { directText = t }
+            if directText.isEmpty && role == "user", let payload = jObj(entry, "payload") {
+                let pt = jStr(payload, "text")
+                if !pt.isEmpty { directText = pt }
+            }
         }
         if role.isEmpty { role = "assistant" }
         var texts = ""

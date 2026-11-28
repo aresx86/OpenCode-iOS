@@ -37,6 +37,10 @@ final class EventStream {
                 for try await line in bytes.lines {
                     if Task.isCancelled { break }
                     if line.isEmpty {
+                        if event.isEmpty && !data.isEmpty, let obj = jRoot(data) {
+                            let t = jStr(obj, "type")
+                            if !t.isEmpty { event = t }
+                        }
                         if !event.isEmpty {
                             await MainActor.run { self.onEvent(event, data) }
                         }

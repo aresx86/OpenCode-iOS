@@ -12,6 +12,7 @@ struct SessionsView: View {
     @State private var chatTarget: SessionInfo?
     @State private var renameTarget: SessionInfo?
     @State private var renameText = ""
+    @State private var showAbout = false
 
     private var filtered: [SessionInfo] {
         let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -61,6 +62,13 @@ struct SessionsView: View {
         .toolbarBackground(Theme.pageBackground, for: .navigationBar)
         .searchable(text: $searchText, prompt: "搜索会话")
         .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button {
+                    showAbout = true
+                } label: {
+                    Image(systemName: "info.circle")
+                }
+            }
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
                     showPicker = true
@@ -89,6 +97,9 @@ struct SessionsView: View {
             if let conn = app.current, let s = chatTarget {
                 ChatView(conn: conn, session: s)
             }
+        }
+        .navigationDestination(isPresented: $showAbout) {
+            AboutView()
         }
         .alert("重命名会话", isPresented: Binding(
             get: { renameTarget != nil },

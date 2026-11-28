@@ -66,9 +66,11 @@ final class ApiClient {
         do {
             let raw = try await request("GET", "/api/info")
             let version = jStr(jRoot(raw), "version")
-            conn.apiVersion = 2
-            conn.serverVersion = version
-            return version
+            if !version.isEmpty {
+                conn.apiVersion = 2
+                conn.serverVersion = version
+                return version
+            }
         } catch let e as ApiError {
             if e.status == 401 || e.status == 403 {
                 conn.apiVersion = 2
@@ -79,9 +81,11 @@ final class ApiClient {
         do {
             let raw = try await request("GET", "/global/health")
             let version = jStr(jRoot(raw), "version")
-            conn.apiVersion = 1
-            conn.serverVersion = version
-            return version
+            if !version.isEmpty {
+                conn.apiVersion = 1
+                conn.serverVersion = version
+                return version
+            }
         } catch let e as ApiError {
             if e.status == 401 || e.status == 403 {
                 conn.apiVersion = 1
@@ -92,14 +96,17 @@ final class ApiClient {
         throw ApiError(status: 0, message: "无法连接服务器，请检查地址、网络或密码")
     }
 
+    private var versionChecked = false
+
     private func ensureDetected() async throws {
-        if conn.apiVersion != 0 {
-            if conn.serverVersion.isEmpty {
-                await refreshVersion()
-            }
+        if !versionChecked || conn.apiVersion == 0 {
+            _ = try await detect()
+            versionChecked = true
             return
         }
-        _ = try await detect()
+        if conn.serverVersion.isEmpty {
+            await refreshVersion()
+        }
     }
 
     private func refreshVersion() async {
@@ -277,7 +284,7 @@ final class ApiClient {
         try await ensureDetected()
         let path = (conn.apiVersion == 1 ? "/session/" : "/api/session/") + sessionId + "/message"
         let raw = try await request("GET", path)
-        return parseChatItems(raw)
+        return parseChatItems(raw, reverseRecords: conn.apiVersion == 2)
     }
 
     func prompt(sessionId: String, text: String, attachments: [PendingAttachment] = []) async throws {

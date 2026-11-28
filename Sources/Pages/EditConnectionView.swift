@@ -12,6 +12,8 @@ struct EditConnectionView: View {
     @State private var password = ""
     @State private var testing = false
     @State private var testText = ""
+    @State private var detectedApi = 0
+    @State private var detectedServerVersion = ""
 
     var body: some View {
         ScrollView {
@@ -112,8 +114,14 @@ struct EditConnectionView: View {
         c.username = username
         c.password = password
         c.apiVersion = 0
+        c.serverVersion = ""
         if !editId.isEmpty, let exist = ConnectionStore.shared.find(editId) {
             c.apiVersion = exist.apiVersion
+            c.serverVersion = exist.serverVersion
+        }
+        if detectedApi > 0 {
+            c.apiVersion = detectedApi
+            c.serverVersion = detectedServerVersion
         }
         return c
     }
@@ -129,6 +137,8 @@ struct EditConnectionView: View {
         Task {
             do {
                 let v = try await ApiClient(conn: c).detect()
+                detectedApi = c.apiVersion
+                detectedServerVersion = c.serverVersion
                 testText = "连接成功 · opencode \(v) · API v\(c.apiVersion)"
             } catch {
                 testText = (error as? ApiError)?.message ?? "\(error)"

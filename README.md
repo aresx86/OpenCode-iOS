@@ -4,11 +4,12 @@ iPhone 原生（SwiftUI）的 [opencode](https://github.com/anomalyco/opencode) 
 
 > 与 opencode 官方无隶属关系，独立社区客户端，通过 opencode 开放 HTTP API 通信。
 
-当前状态（M3 功能齐平鸿蒙版）：
+当前状态（v0.2.0，与鸿蒙版同步）：
 
 已实现：
 
-- 多连接管理（添加 / 编辑 / 重命名 / 删除 / 测试连通性，自动识别 opencode V1 / V2 API）
+- 多连接管理（添加 / 编辑 / 重命名 / 删除 / 测试连通性，自动识别 opencode V1 / V2 API，**打开连接 / 首次请求自愈式重新探测版本**，服务端升级 V1↔V2 后自动纠正）
+- **opencode V2 全面适配**（消息列表倒序修正、SSE 事件流细粒度路由 text/reasoning/execution 事件并按会话过滤、data 内嵌 type 兜底、V2 权限 decision 回复体）
 - 会话列表（按项目目录分组、搜索、相对时间、运行中标识、下拉刷新、滑动删除、重命名）
 - 新建会话选目录（V1 列出已打开项目，V2 支持逐级浏览服务器目录树）
 - **流式对话**（SSE 实时输出、发送消息、乐观上屏、断线自动重连、5s 轮询兜底、执行中状态恢复）
@@ -20,6 +21,7 @@ iPhone 原生（SwiftUI）的 [opencode](https://github.com/anomalyco/opencode) 
 - Diff 视图（edit / write LCS 行级差异、patch 解析、增删行统计、一键复制）
 - **语音输入**（SFSpeechRecognizer 中文识别，复用现有输入作前缀、3 秒静音自动结束、60 秒上限）
 - **图片 / 文件附件**（相册多选 + 文件导入，上限 6 个、单文件 15MB，缩略图可删除）
+- **关于页面**（版本号 + 更新日志，会话页左上角进入）
 - 思考过程折叠、系统注入内容过滤（显示/隐藏切换）
 - 应用图标（与鸿蒙版一致，tools/port_icon.mjs 从鸿蒙仓库 216px 图标放大重编码）
 - 连接密码仅保存在本机 UserDefaults，不上传
@@ -93,6 +95,7 @@ OpenCode-iOS/
         ├── EditConnectionView.swift # 连接编辑/测试
         ├── SessionsView.swift       # 会话列表
         ├── DirectoryPickerView.swift# 新会话选目录
+        ├── AboutView.swift           # 关于页（版本号与更新日志）
         ├── ChatState.swift          # 对话页状态与逻辑（移植 Chat.ets 逻辑层）
         └── ChatView.swift           # 对话页 UI（流式/审批/附件/语音/工具卡片/输入栏）
 ```

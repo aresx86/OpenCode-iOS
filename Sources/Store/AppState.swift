@@ -78,16 +78,14 @@ final class AppState: ObservableObject {
     }
 
     func openConnection(_ c: Connection) async {
-        if c.apiVersion == 0 {
-            let client = ApiClient(conn: c)
-            do {
-                _ = try await client.detect()
-                ConnectionStore.shared.upsert(c)
-                reload()
-            } catch {
-                showToast((error as? ApiError)?.message ?? "\(error)")
-                return
-            }
+        let client = ApiClient(conn: c)
+        do {
+            _ = try await client.detect()
+            ConnectionStore.shared.upsert(c)
+            reload()
+        } catch {
+            showToast((error as? ApiError)?.message ?? "\(error)")
+            return
         }
         current = c
         tab = 0
